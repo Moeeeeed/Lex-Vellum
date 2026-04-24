@@ -11,6 +11,9 @@ class IngestRequest(BaseModel):
 class AnalyzeRequest(BaseModel):
     sentence: str
 
+class AnalyzeDocumentRequest(BaseModel):
+    document_text: str
+
 @router.post("/ingest")
 async def ingest_law_endpoint(request: IngestRequest):
     """
@@ -29,6 +32,17 @@ async def analyze_sentence_endpoint(request: AnalyzeRequest):
     """
     try:
         result = await rag_service.analyze_tos_sentence(request.sentence)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/analyze_document")
+async def analyze_document_endpoint(request: AnalyzeDocumentRequest):
+    """
+    Analyzes a full ToS document against the vector DB laws.
+    """
+    try:
+        result = await rag_service.analyze_full_document(request.document_text)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
