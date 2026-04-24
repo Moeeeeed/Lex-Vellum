@@ -1,9 +1,0 @@
-fastapi
-uvicorn
-motor
-pinecone
-google-generativeai
-pydantic
-pydantic-settings
-python-dotenv
-groq
