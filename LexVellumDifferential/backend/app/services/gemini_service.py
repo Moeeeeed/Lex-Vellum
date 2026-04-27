@@ -1,18 +1,15 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from app.core.config import settings
-
-# Configure the Gemini API
-if settings.GEMINI_API_KEY:
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+import json
+import asyncio
 
 class GeminiService:
     def __init__(self):
-        # We use gemini-embedding-2 for generating embeddings (1024 dimensions for Pinecone)
-        self.embedding_model_name = 'models/gemini-embedding-2'
-        # We use gemini-2.5-flash for fast text generation
-        self.text_model_name = 'gemini-2.5-flash'
-        
-        self.text_model = genai.GenerativeModel(self.text_model_name)
+        # Initialize the new Google GenAI client
+        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        self.embedding_model_name = 'models/gemini-embedding-2' # Standard Gemini embedding
+        self.text_model_name = 'models/gemini-3-flash-preview'
 
     async def get_embedding(self, text: str) -> list[float]:
         """
@@ -21,17 +18,16 @@ class GeminiService:
         if not settings.GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY is not set. Cannot generate embeddings.")
             
-        result = genai.embed_content(
+        result = self.client.models.embed_content(
             model=self.embedding_model_name,
-            content=text,
-            task_type="retrieval_document",
-            output_dimensionality=1024
+            contents=text,
+            config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT", output_dimensionality=1024)
         )
-        return result['embedding']
+        return result.embeddings[0].values
 
     async def generate_safe_alternative(self, violation_text: str, laws_context: list[str]) -> str:
         """
-        Generates a safe alternative for a violating ToS sentence based on relevant laws.
+        Generates a safe alternative for a violating ToS sentence.
         """
         if not settings.GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY is not set. Cannot generate text.")
@@ -52,69 +48,12 @@ class GeminiService:
         Return ONLY the rewritten text, nothing else.
         """
         
-        response = self.text_model.generate_content(prompt)
+        response = self.client.models.generate_content(model=self.text_model_name, contents=prompt)
         return response.text.strip()
-
-    async def evaluate_clause_compliance(self, clause_text: str, laws_context: list[str]) -> dict:
-        """
-        Evaluates a legal clause against a set of laws and returns a structured JSON response.
-        Status can be: "violation", "warning", or "compliant".
-        """
-        if not settings.GEMINI_API_KEY:
-            raise ValueError("GEMINI_API_KEY is not set. Cannot evaluate compliance.")
-            
-        context_str = "\n".join([f"- {law}" for law in laws_context])
-        prompt = f"""
-        You are an expert legal compliance AI. Evaluate the following Terms of Service clause against the provided laws.
-        Classify the clause as exactly one of: "violation", "warning", or "compliant".
-        If it is a violation or warning, provide a brief reasoning and a "safe_alternative" that rewrites the clause to be fully compliant. If it is compliant, leave safe_alternative empty.
-        
-        Clause to Evaluate:
-        "{clause_text}"
-        
-        Relevant Laws:
-        {context_str}
-        
-        Return the result as a valid JSON object with the following keys:
-        - "status": string ("violation", "warning", or "compliant")
-        - "reasoning": string (brief explanation)
-        - "safe_alternative": string (rewritten text, or empty string if compliant)
-        """
-        
-        # We request structured JSON output using generation_config
-        import asyncio
-        from google.api_core.exceptions import ResourceExhausted
-        
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                response = self.text_model.generate_content(
-                    prompt,
-                    generation_config=genai.types.GenerationConfig(
-                        response_mime_type="application/json"
-                    )
-                )
-                break
-            except ResourceExhausted as e:
-                if attempt == max_retries - 1:
-                    raise e
-                print(f"Gemini Rate Limit hit. Waiting 30 seconds before retrying... (Attempt {attempt+1}/{max_retries})")
-                await asyncio.sleep(30)
-                
-        import json
-        try:
-            return json.loads(response.text)
-        except json.JSONDecodeError:
-            # Fallback in case the model failed to return valid JSON
-            return {
-                "status": "warning",
-                "reasoning": "Failed to parse AI response as JSON.",
-                "safe_alternative": clause_text
-            }
 
     async def evaluate_document_batch(self, clauses: list[str], laws_context: list[str]) -> dict:
         """
-        Evaluates a list of legal clauses in a single API call to minimize quota usage.
+        Evaluates a list of legal clauses in a single API call using JSON output.
         """
         if not settings.GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY is not set. Cannot evaluate compliance.")
@@ -131,37 +70,69 @@ class GeminiService:
         Clauses to Evaluate:
         {clauses_with_ids}
         
-        For EACH clause, classify it as exactly one of: "violation", "warning", or "compliant".
-        If it is a violation or warning, provide a brief reasoning and a "safe_alternative" that rewrites the clause to be fully compliant.
-        
         Return the result as a valid JSON object with a key "evaluations" which is an array of objects.
-        Each object in the array MUST have:
-        - "id": integer (matching the ID provided above)
-        - "status": string ("violation", "warning", or "compliant")
-        - "reasoning": string (brief explanation)
-        - "safe_alternative": string (rewritten text, or empty string if compliant)
+        Each object MUST have: id, status (violation/warning/compliant), score (0-100), 
+        jurisdiction (array), reasoning, and safe_alternative (for violations).
         """
         
-        import asyncio
-        from google.api_core.exceptions import ResourceExhausted
-        import json
-
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                response = self.text_model.generate_content(
-                    prompt,
-                    generation_config=genai.types.GenerationConfig(
+                # Request JSON output using config
+                response = self.client.models.generate_content(
+                    model=self.text_model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
                         response_mime_type="application/json"
                     )
                 )
                 return json.loads(response.text)
-            except ResourceExhausted as e:
-                if attempt == max_retries - 1:
-                    raise e
-                print(f"Gemini Rate Limit hit. Waiting 45 seconds... (Attempt {attempt+1}/{max_retries})")
-                await asyncio.sleep(45)
             except Exception as e:
+                # Catch the 429 Rate Limit error and wait 45 seconds
+                if "429" in str(e) and attempt < max_retries - 1:
+                    print(f"Rate limit hit. Waiting 45 seconds before attempt {attempt + 2}...")
+                    await asyncio.sleep(45)
+                    continue
+                return {"evaluations": [], "error": str(e)}
+
+    async def evaluate_document_against_jurisdiction(self, clauses: list[str], laws_context: list[str], jurisdiction: str) -> dict:
+        """
+        Evaluates clauses specifically against a single jurisdiction's laws.
+        """
+        if not settings.GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY is not set. Cannot evaluate compliance.")
+            
+        context_str = "\n".join([f"- {law}" for law in laws_context])
+        clauses_with_ids = "\n".join([f"ID {i+1}: {clause}" for i, clause in enumerate(clauses)])
+        
+        prompt = f"""
+        You are an expert legal compliance AI. Evaluate the following Terms of Service clauses SPECIFICALLY against {jurisdiction} laws only.
+        
+        {jurisdiction} Laws to check against:
+        {context_str}
+        
+        Clauses to Evaluate:
+        {clauses_with_ids}
+        
+        Return as a valid JSON object with key "evaluations" as array of objects.
+        """
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.text_model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json"
+                    )
+                )
+                return json.loads(response.text)
+            except Exception as e:
+                if "429" in str(e) and attempt < max_retries - 1:
+                    print(f"Rate limit hit. Waiting 45 seconds before attempt {attempt + 2}...")
+                    await asyncio.sleep(45)
+                    continue
                 return {"evaluations": [], "error": str(e)}
 
 gemini_service = GeminiService()

@@ -42,4 +42,44 @@ class PineconeService:
         )
         return response['matches']
 
+    async def query_similar_by_jurisdiction(self, query_vector: list[float], jurisdiction: str, top_k: int = 3) -> list[dict]:
+        """
+        Queries the Pinecone index for similar vectors filtered by jurisdiction.
+        jurisdiction can be: 'EU', 'USA', 'USA - California', 'GDPR' (mapped to EU with gdpr- prefix filter)
+        """
+        if not self.index:
+            raise ValueError("Pinecone index is not initialized. Check API key.")
+
+        # Build the metadata filter based on jurisdiction
+        if jurisdiction.upper() == "GDPR":
+            # GDPR articles are stored under jurisdiction "EU" with article_id starting with "gdpr-"
+            metadata_filter = {
+                "jurisdiction": {"$eq": "EU"},
+            }
+        elif jurisdiction.upper() == "USA":
+            # USA laws include California (CCPA) and federal laws
+            metadata_filter = {
+                "$or": [
+                    {"jurisdiction": {"$eq": "USA"}},
+                    {"jurisdiction": {"$eq": "USA - California"}},
+                    {"jurisdiction": {"$eq": "USA - Federal"}},
+                ]
+            }
+        elif jurisdiction.upper() == "EU":
+            metadata_filter = {
+                "jurisdiction": {"$eq": "EU"},
+            }
+        else:
+            metadata_filter = {
+                "jurisdiction": {"$eq": jurisdiction},
+            }
+
+        response = self.index.query(
+            vector=query_vector,
+            top_k=top_k,
+            include_metadata=True,
+            filter=metadata_filter
+        )
+        return response['matches']
+
 pinecone_service = PineconeService()

@@ -3,115 +3,250 @@ from app.services.pinecone_service import pinecone_service
 from app.services.gemini_service import gemini_service
 from app.services.groq_service import groq_service
 
+JURISDICTION_FLAG_MAP = {
+    "EU": "🇪🇺",
+    "GDPR": "🇪🇺",
+    "USA": "🇺🇸",
+    "UK": "🇬🇧",
+    "Canada": "🇨🇦",
+    "Australia": "🇦🇺",
+}
+
 class RagService:
     async def ingest_law(self, law_text: str, metadata: dict) -> dict:
         """
         Embeds a piece of legal text and stores it in Pinecone.
         """
-        # 1. Generate embedding
         embedding = await gemini_service.get_embedding(law_text)
-        
-        # 2. Store in Pinecone
         vector_id = metadata.get('article_id', str(hash(law_text)))
         vector_record = {
             'id': vector_id,
             'values': embedding,
             'metadata': {**metadata, 'text': law_text}
         }
-        
         await pinecone_service.upsert_vectors([vector_record])
         return {"status": "success", "vector_id": vector_id}
-
-    async def analyze_tos_sentence(self, sentence: str) -> dict:
-        """
-        Takes a sentence from the ToS, finds relevant laws, and if a violation
-        is found, generates a safe alternative.
-        (For now, we just retrieve relevant laws to test the pipeline)
-        """
-        # 1. Embed the ToS sentence
-        query_embedding = await gemini_service.get_embedding(sentence)
-        
-        # 2. Query Pinecone for similar laws
-        matches = await pinecone_service.query_similar(query_embedding, top_k=3)
-        
-        # Extract the texts of the relevant laws
-        relevant_laws = [match['metadata']['text'] for match in matches if 'text' in match['metadata']]
-        
-        # 3. Ask Gemini if it violates and generate a safe alternative
-        # Note: In a full implementation we'd first check if there is an actual violation.
-        # For phase 1, we will just pass it to the generator to see the RAG output.
-        if not relevant_laws:
-            return {"sentence": sentence, "status": "safe", "laws_checked": 0}
-            
-        safe_alternative = await gemini_service.generate_safe_alternative(sentence, relevant_laws)
-        
-        return {
-            "original_sentence": sentence,
-            "relevant_laws": relevant_laws,
-            "safe_alternative": safe_alternative
-        }
 
     def chunk_document(self, text: str) -> list[str]:
         """
         Splits a document into logical clauses (paragraphs).
         """
         import re
-        # Split by double newline to get paragraphs, filter out empty ones
         chunks = [chunk.strip() for chunk in re.split(r'\n\s*\n', text)]
-        return [chunk for chunk in chunks if chunk]
+        return [chunk for chunk in chunks if len(chunk) > 30]
+
+    def _compute_differential_scores(self, evaluated_clauses: list[dict]) -> dict:
+        """
+        Computes overall and per-jurisdiction differential scores from evaluated clauses.
+        """
+        if not evaluated_clauses:
+            return {
+                "overall_score": 0,
+                "jurisdiction_scores": {"EU": 0, "USA": 0, "GDPR": 0},
+                "category_breakdown": {"violation": 0, "warning": 0, "compliant": 0}
+            }
+
+        # Overall score = average of all clause scores
+        all_scores = [c.get("score", 50) for c in evaluated_clauses]
+        overall_score = round(sum(all_scores) / len(all_scores))
+
+        # Jurisdiction scores: average score of clauses involving each jurisdiction
+        jurisdiction_clause_scores: dict[str, list[int]] = {"EU": [], "USA": [], "GDPR": []}
+        for clause in evaluated_clauses:
+            score = clause.get("score", 50)
+            jurisdictions = clause.get("jurisdiction", [])
+            for j in jurisdictions:
+                j_upper = j.upper()
+                if j_upper in jurisdiction_clause_scores:
+                    jurisdiction_clause_scores[j_upper].append(score)
+
+        jurisdiction_scores = {}
+        for j, scores in jurisdiction_clause_scores.items():
+            if scores:
+                jurisdiction_scores[j] = round(sum(scores) / len(scores))
+            else:
+                # No clauses touched this jurisdiction — default to overall score
+                jurisdiction_scores[j] = overall_score
+
+        # Category breakdown counts
+        category_breakdown = {"violation": 0, "warning": 0, "compliant": 0}
+        for clause in evaluated_clauses:
+            status = clause.get("status", "compliant")
+            if status in category_breakdown:
+                category_breakdown[status] += 1
+
+        return {
+            "overall_score": overall_score,
+            "jurisdiction_scores": jurisdiction_scores,
+            "category_breakdown": category_breakdown
+        }
+
+    def _enrich_clause_flags(self, clause: dict) -> dict:
+        """
+        Adds emoji flag strings to a clause based on its jurisdiction list.
+        """
+        jurisdictions = clause.get("jurisdiction", [])
+        flags = []
+        for j in jurisdictions:
+            flag = JURISDICTION_FLAG_MAP.get(j.upper(), "")
+            if flag and flag not in flags:
+                flags.append(flag)
+        clause["flags"] = flags
+        return clause
 
     async def analyze_full_document(self, document_text: str) -> dict:
         """
-        Analyzes a full document in a single batch to minimize API quota usage.
+        Analyzes a full document in a single batch.
+        Returns color-coded clauses with scores, jurisdiction flags, and differential scoring data.
         """
         clauses = self.chunk_document(document_text)
-        
-        # 1. Collect all relevant laws for all clauses first (High quota embedding/vector search)
+
+        # Collect all relevant laws across all clauses
         all_relevant_laws = set()
-        clause_law_map = {} # To keep track which laws belong to which clause for context
-        
+        clause_law_map = {}
+
         for i, clause in enumerate(clauses):
             query_embedding = await gemini_service.get_embedding(clause)
             matches = await pinecone_service.query_similar(query_embedding, top_k=2)
             laws = [match['metadata']['text'] for match in matches if 'text' in match['metadata']]
             all_relevant_laws.update(laws)
-            clause_law_map[i+1] = laws
+            clause_law_map[i + 1] = laws
 
-        # 2. Call the AI (Groq is preferred for its high speed and quota)
+        # Use Groq (preferred) or Gemini fallback
         if groq_service.client:
             batch_result = await groq_service.evaluate_document_batch(clauses, list(all_relevant_laws))
         else:
-            # Fallback to Gemini if Groq is not configured
             batch_result = await gemini_service.evaluate_document_batch(clauses, list(all_relevant_laws))
-            
+
         evaluations_list = batch_result.get("evaluations", [])
-        
-        # 3. Map results back to structured format
-        evaluated_clauses = []
-        # Create a lookup for evaluations by ID
         eval_lookup = {item['id']: item for item in evaluations_list}
-        
+
+        evaluated_clauses = []
         for i, clause in enumerate(clauses):
             clause_id = i + 1
             eval_data = eval_lookup.get(clause_id, {
-                "status": "compliant", 
-                "reasoning": "Batch evaluation did not return data for this clause.",
+                "status": "compliant",
+                "score": 85,
+                "jurisdiction": [],
+                "reasoning": "No specific compliance issue detected.",
                 "safe_alternative": ""
             })
-            
-            evaluated_clauses.append({
+
+            clause_obj = {
                 "id": clause_id,
                 "original_text": clause,
                 "status": eval_data.get("status", "compliant"),
+                "score": eval_data.get("score", 85),
+                "jurisdiction": eval_data.get("jurisdiction", []),
                 "reasoning": eval_data.get("reasoning", ""),
                 "safe_alternative": eval_data.get("safe_alternative", ""),
                 "relevant_laws": clause_law_map.get(clause_id, [])
-            })
-            
+            }
+            clause_obj = self._enrich_clause_flags(clause_obj)
+            evaluated_clauses.append(clause_obj)
+
+        differential = self._compute_differential_scores(evaluated_clauses)
+
         return {
             "document_status": "analyzed",
             "total_clauses": len(clauses),
-            "evaluated_clauses": evaluated_clauses
+            "evaluated_clauses": evaluated_clauses,
+            "overall_score": differential["overall_score"],
+            "jurisdiction_scores": differential["jurisdiction_scores"],
+            "category_breakdown": differential["category_breakdown"]
         }
+
+    async def analyze_against_jurisdiction(self, document_text: str, jurisdiction: str) -> dict:
+        """
+        Analyzes a document against a specific jurisdiction's laws only.
+        Used for the individual EU / USA / GDPR check buttons.
+        """
+        clauses = self.chunk_document(document_text)
+
+        all_relevant_laws = set()
+        clause_law_map = {}
+
+        for i, clause in enumerate(clauses):
+            query_embedding = await gemini_service.get_embedding(clause)
+            matches = await pinecone_service.query_similar_by_jurisdiction(
+                query_embedding, jurisdiction=jurisdiction, top_k=3
+            )
+            laws = [match['metadata']['text'] for match in matches if 'text' in match['metadata']]
+            all_relevant_laws.update(laws)
+            clause_law_map[i + 1] = laws
+
+        if not all_relevant_laws:
+            # Fallback to unfiltered if jurisdiction returned no results
+            for i, clause in enumerate(clauses):
+                query_embedding = await gemini_service.get_embedding(clause)
+                matches = await pinecone_service.query_similar(query_embedding, top_k=2)
+                laws = [match['metadata']['text'] for match in matches if 'text' in match['metadata']]
+                all_relevant_laws.update(laws)
+
+        if groq_service.client:
+            batch_result = await groq_service.evaluate_document_against_jurisdiction(
+                clauses, list(all_relevant_laws), jurisdiction
+            )
+        else:
+            batch_result = await gemini_service.evaluate_document_against_jurisdiction(
+                clauses, list(all_relevant_laws), jurisdiction
+            )
+
+        evaluations_list = batch_result.get("evaluations", [])
+        eval_lookup = {item['id']: item for item in evaluations_list}
+
+        evaluated_clauses = []
+        for i, clause in enumerate(clauses):
+            clause_id = i + 1
+            eval_data = eval_lookup.get(clause_id, {
+                "status": "compliant",
+                "score": 85,
+                "jurisdiction": [jurisdiction],
+                "reasoning": "No specific compliance issue detected.",
+                "safe_alternative": ""
+            })
+
+            clause_obj = {
+                "id": clause_id,
+                "original_text": clause,
+                "status": eval_data.get("status", "compliant"),
+                "score": eval_data.get("score", 85),
+                "jurisdiction": eval_data.get("jurisdiction", [jurisdiction]),
+                "reasoning": eval_data.get("reasoning", ""),
+                "safe_alternative": eval_data.get("safe_alternative", ""),
+                "relevant_laws": clause_law_map.get(clause_id, [])
+            }
+            clause_obj = self._enrich_clause_flags(clause_obj)
+            evaluated_clauses.append(clause_obj)
+
+        differential = self._compute_differential_scores(evaluated_clauses)
+
+        return {
+            "document_status": "analyzed",
+            "jurisdiction_checked": jurisdiction,
+            "total_clauses": len(clauses),
+            "evaluated_clauses": evaluated_clauses,
+            "overall_score": differential["overall_score"],
+            "jurisdiction_scores": differential["jurisdiction_scores"],
+            "category_breakdown": differential["category_breakdown"]
+        }
+
+    async def legal_chat(self, query: str) -> dict:
+        """
+        Performs RAG for legal chat: retrieves context and answers via Groq.
+        """
+        # 1. Embed query
+        query_embedding = await gemini_service.get_embedding(query)
+        
+        # 2. Retrieve context from Pinecone
+        matches = await pinecone_service.query_similar(query_embedding, top_k=5)
+        laws_context = [m['metadata']['text'] for m in matches if 'text' in m['metadata']]
+        
+        # 3. Get answer from LLM
+        result = await groq_service.chat(query, laws_context)
+        
+        # 4. Add raw matches for display (FR34)
+        result["raw_sources"] = laws_context
+        return result
 
 rag_service = RagService()

@@ -1,9 +1,14 @@
 fastapi
 uvicorn
-motor
+sqlalchemy
 pinecone
-google-generativeai
+google-genai
 pydantic
 pydantic-settings
 python-dotenv
 groq
+PyMuPDF
+python-multipart
+passlib[bcrypt]
+python-jose[cryptography]
+email-validator
