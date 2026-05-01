@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sys
+import json
 
 # add backend to path to allow absolute imports like `app.something`
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -23,7 +24,7 @@ async def main():
     test_sentence = "We reserve the right to retain your data indefinitely for future commercial use."
     print(f"Testing RAG with sentence: '{test_sentence}'")
     analysis_result = await rag_service.analyze_tos_sentence(test_sentence)
-    import json
+ 
     print("Analysis result:")
     print(json.dumps(analysis_result, indent=2))
 

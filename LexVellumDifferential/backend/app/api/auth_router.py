@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.user import User, UserCreate, UserOut, Token, TokenData
+from app.services.email_service import send_email
+import uuid
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -39,7 +41,26 @@ def reset_password_request(email: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     
     # FR2: Secure password reset link sent to master email.
-    # Since we don't have an email service, we'll return a 'token' simulation.
+    reset_token = str(uuid.uuid4())
+    reset_link = f"http://localhost:5173/reset-password?token={reset_token}"
+    
+    email_body = f"""
+Hello,
+
+You have requested a password reset for your LexVellum Differential account.
+
+Please use the following link to reset your password:
+{reset_link}
+
+If you did not request a password reset, you can safely ignore this email.
+
+Best regards,
+LexVellum Team
+    """
+    
+    # Send real email using our SMTP service
+    send_email(email, "LexVellum Password Reset Request", email_body)
+    
     return {"message": "If this email is registered, a reset link will be sent."}
 
 @router.post("/login", response_model=Token)
@@ -115,6 +136,25 @@ def create_managed_user(
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    
+    # Send Welcome Email
+    email_body = f"""
+Hello {user_in.full_name or 'User'},
+
+Welcome to LexVellum Differential! An account has been created for you by the CEO.
+
+Here are your login credentials:
+Email: {user_in.email}
+Password: {user_in.password}
+Role: {user_in.role}
+
+Please log in to the platform and change your password as soon as possible.
+
+Best regards,
+LexVellum CEO
+    """
+    send_email(user_in.email, "Welcome to LexVellum Differential", email_body)
+    
     return new_user
 
 @router.get("/users", response_model=list[UserOut])

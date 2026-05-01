@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     CEO_EMAIL: str = "ceo@lexvellum.com"
     CEO_PASSWORD: str = "LexVellumCEO2024!"
 
+    # Email Settings
+    SMTP_EMAIL: str = ""
+    SMTP_PASSWORD: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 settings = Settings()
