@@ -22,7 +22,8 @@ async def create_audit_logs(
             action=log_data.action,
             original_text=log_data.original_text,
             new_text=log_data.new_text,
-            legal_article=log_data.legal_article
+            legal_article=log_data.legal_article,
+            full_document=log_data.full_document
         )
         db.add(new_log)
         created_logs.append(new_log)

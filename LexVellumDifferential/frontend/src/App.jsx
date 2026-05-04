@@ -7,12 +7,15 @@ import UploadZone from './components/UploadZone';
 import Login from './components/Login';
 import UserManagement from './components/UserManagement';
 import LegalChatbot from './components/LegalChatbot';
+import LawyerDashboard from './components/LawyerDashboard';
+import AuditVault from './components/AuditVault';
+import { saveAuditLogs, submitDocument } from './api';
 
 export default function App() {
   // ── Auth state ──────────────────────────────────────────
   const [isAuthenticated, setIsAuthenticated]   = useState(!!localStorage.getItem('token'));
   const [user, setUser]                         = useState(null);
-  const [view, setView]                         = useState('dashboard'); // 'dashboard' | 'users'
+  const [view, setView]                         = useState('dashboard'); // 'dashboard' | 'users' | 'audit' | 'lawyer'
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -47,6 +50,9 @@ export default function App() {
   // ── Analytics state (FR21, FR22) ────────────────────────
   const [activeRegion, setActiveRegion]         = useState('ALL');
   const [auditHistory, setAuditHistory]         = useState([]);
+  
+  // ── Audit Vault state ───────────────────────────────────
+  const [isSavingAudit, setIsSavingAudit]       = useState(false);
 
   // ── Helpers ─────────────────────────────────────────────
   const applyAnalysisResult = (data, label = 'Initial') => {
@@ -72,9 +78,25 @@ export default function App() {
     setActiveJurisdiction('ALL');
     try {
       const data = await uploadPDF(selectedFile);
+      const rawText = data.evaluated_clauses?.map(c => c.original_text).join('\n\n') || '';
+      
       // Store raw text for jurisdiction re-checks
-      setDocumentText(data.evaluated_clauses?.map(c => c.original_text).join('\n\n') || '');
+      setDocumentText(rawText);
       applyAnalysisResult(data);
+      
+      // FR38: Automatically archive original document
+      if (rawText) {
+        try {
+          await saveAuditLogs([{
+            action: 'Archived Original Document',
+            original_text: 'N/A',
+            new_text: 'Original ToS uploaded for analysis.',
+            full_document: rawText
+          }]);
+        } catch (e) {
+          console.error("Failed to archive original document:", e);
+        }
+      }
     } catch (err) {
       alert('Analysis error: ' + err.message);
     } finally {
@@ -83,10 +105,17 @@ export default function App() {
   };
 
   // ── Accept single AI suggestion ─────────────────────────
-  const handleAcceptSuggestion = (clauseId) => {
+  const handleAcceptSuggestion = async (clauseId) => {
+    let acceptedLog = null;
     setClauses(prev => {
       const updated = prev.map(c => {
         if (c.id !== clauseId) return c;
+        acceptedLog = {
+          action: 'Accepted AI Suggestion',
+          original_text: c.original_text,
+          new_text: c.safe_alternative,
+          legal_article: c.flags ? c.flags.join(', ') : null
+        };
         return { ...c, original_text: c.safe_alternative, status: 'compliant', safe_alternative: '', score: 100 };
       });
       // FR21: update audit history score
@@ -96,14 +125,28 @@ export default function App() {
       setOverallScore(newScore);
       return updated;
     });
+    if (acceptedLog) {
+      try {
+        await saveAuditLogs([acceptedLog]);
+      } catch (e) {
+        console.error("Failed to auto-save suggestion:", e);
+      }
+    }
     if (activeClause?.id === clauseId) setActiveClause(null);
   };
 
   // ── Accept ALL AI suggestions ────────────────────────────
-  const handleAcceptAll = () => {
+  const handleAcceptAll = async () => {
+    const newLogs = [];
     setClauses(prev => {
       const updated = prev.map(c => {
         if (c.status !== 'violation' || !c.safe_alternative) return c;
+        newLogs.push({
+          action: 'Bulk Accepted AI Suggestion',
+          original_text: c.original_text,
+          new_text: c.safe_alternative,
+          legal_article: c.flags ? c.flags.join(', ') : null
+        });
         return { ...c, original_text: c.safe_alternative, status: 'compliant', safe_alternative: '', score: 100 };
       });
       // FR21: update audit history score
@@ -113,7 +156,50 @@ export default function App() {
       setOverallScore(newScore);
       return updated;
     });
+    if (newLogs.length > 0) {
+      try {
+        await saveAuditLogs(newLogs);
+      } catch (e) {
+        console.error("Failed to auto-save bulk suggestions:", e);
+      }
+    }
     setActiveClause(null);
+  };
+
+  // ── Complete & Save to Vault ─────────────────────────────
+  const handleComplete = async () => {
+    setIsSavingAudit(true);
+    try {
+      const fullText = clauses.map(c => c.original_text).join('\n\n');
+      
+      // 1. Submit to Lawyer Approval Workflow
+      await submitDocument(fullText);
+
+      // 2. Add final "Document Finalized" log
+      const finalLog = {
+        action: 'Document Finalized & Submitted for Review',
+        original_text: 'N/A',
+        new_text: 'Full ToS document submitted.',
+        full_document: fullText
+      };
+      
+      await saveAuditLogs([finalLog]);
+      
+      alert('Successfully submitted for lawyer review and saved to the Immutable Audit Vault.');
+      
+      // Reset view
+      setAnalysisView('upload');
+      setClauses([]);
+      setSelectedFile(null);
+      setDocumentText('');
+      setActiveClause(null);
+      setOverallScore(null);
+      
+    } catch (err) {
+      alert('Error during completion: ' + err.message);
+    } finally {
+      setIsSavingAudit(false);
+    }
   };
 
   // ── Edit TOS text change ─────────────────────────────────
@@ -158,6 +244,34 @@ export default function App() {
     return <Login onLoginSuccess={() => setIsAuthenticated(true)} />;
   }
 
+  // ── Render: Audit Vault ───────────────────────────────────
+  if (view === 'audit') {
+    return <AuditVault onBack={() => setView('dashboard')} />;
+  }
+
+  // ── Render: Lawyer Dashboard ──────────────────────────────
+  if (view === 'lawyer' || (user?.role === 'Approver' && view === 'dashboard')) {
+    return (
+      <div className="app-container">
+        <nav className="navbar">
+          <div className="navbar-brand">LexVellum <span>Differential</span></div>
+          <button 
+            className={`btn ${view === 'audit' ? 'btn-primary' : ''}`} 
+            onClick={() => setView('audit')}
+            style={{ fontSize: '0.7rem', marginLeft: 15 }}
+          >
+            Audit Vault
+          </button>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 15 }}>
+            <span style={{ fontSize: '0.7rem', color: '#666' }}>{user?.full_name} ({user?.role})</span>
+            <button className="btn" onClick={handleLogout} style={{ fontSize: '0.7rem' }}>Logout</button>
+          </div>
+        </nav>
+        <LawyerDashboard />
+      </div>
+    );
+  }
+
   // ── Render: Upload screen ─────────────────────────────────
   if (analysisView === 'upload') {
     return (
@@ -167,24 +281,43 @@ export default function App() {
           
           {user?.role === 'CEO' && (
             <div style={{ display: 'flex', gap: 10, marginLeft: 20 }}>
-              <button 
-                className={`btn ${view === 'dashboard' ? 'btn-primary' : ''}`} 
-                onClick={() => setView('dashboard')}
-                style={{ fontSize: '0.7rem' }}
-              >
-                Dashboard
-              </button>
-              <button 
-                className={`btn ${view === 'users' ? 'btn-primary' : ''}`} 
-                onClick={() => setView('users')}
-                style={{ fontSize: '0.7rem' }}
-              >
-                Manage Users
-              </button>
-            </div>
-          )}
+                <button 
+                  className={`btn ${view === 'dashboard' ? 'btn-primary' : ''}`} 
+                  onClick={() => setView('dashboard')}
+                  style={{ fontSize: '0.7rem' }}
+                >
+                  Dashboard
+                </button>
+                <button 
+                  className={`btn ${view === 'users' ? 'btn-primary' : ''}`} 
+                  onClick={() => setView('users')}
+                  style={{ fontSize: '0.7rem' }}
+                >
+                  Manage Users
+                </button>
+                <button 
+                  className={`btn ${view === 'audit' ? 'btn-primary' : ''}`} 
+                  onClick={() => setView('audit')}
+                  style={{ fontSize: '0.7rem' }}
+                >
+                  Audit Vault
+                </button>
+              </div>
+            )}
+            
+            {user?.role !== 'CEO' && (
+              <div style={{ display: 'flex', gap: 10, marginLeft: 20 }}>
+                <button 
+                  className={`btn ${view === 'audit' ? 'btn-primary' : ''}`} 
+                  onClick={() => setView('audit')}
+                  style={{ fontSize: '0.7rem' }}
+                >
+                  Audit Vault
+                </button>
+              </div>
+            )}
 
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 15 }}>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 15 }}>
             <span style={{ fontSize: '0.7rem', color: '#666' }}>{user?.full_name} ({user?.role})</span>
             <button className="btn" onClick={handleLogout} style={{ fontSize: '0.7rem' }}>Logout</button>
           </div>
@@ -260,6 +393,15 @@ export default function App() {
             Manage Users
           </button>
         )}
+        
+        {/* All Users: Audit Vault */}
+        <button 
+          className="btn" 
+          onClick={() => { setView('audit'); setAnalysisView('upload'); }}
+          style={{ fontSize: '0.7rem', marginLeft: 15 }}
+        >
+          Audit Vault
+        </button>
 
         {/* Navigation Tabs */}
         <div className="nav-group" style={{ display: 'flex', gap: 6, marginLeft: 12 }}>
@@ -311,6 +453,18 @@ export default function App() {
           {violationCount > 0 && !isEditing && ['CEO', 'Approver'].includes(user?.role) && (
             <button className="btn btn-success" onClick={handleAcceptAll}>
               ✓ Accept All ({violationCount})
+            </button>
+          )}
+
+          {/* Complete Button (Saves to Audit Vault) */}
+          {['CEO', 'Editor'].includes(user?.role) && clauses.length > 0 && (
+            <button 
+              className="btn" 
+              style={{ background: 'var(--primary)', color: '#fff' }} 
+              onClick={handleComplete}
+              disabled={isSavingAudit}
+            >
+              {isSavingAudit ? 'Saving...' : `💾 Complete & Submit for Review`}
             </button>
           )}
 

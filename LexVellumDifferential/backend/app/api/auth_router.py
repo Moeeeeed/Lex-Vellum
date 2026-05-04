@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.user import User, UserCreate, UserOut, Token, TokenData
+from app.models.audit import AuditLog
 from app.services.email_service import send_email
 import uuid
 
@@ -60,6 +61,17 @@ LexVellum Team
     
     # Send real email using our SMTP service
     send_email(email, "LexVellum Password Reset Request", email_body)
+    
+    # Log to Audit Vault
+    audit_log = AuditLog(
+        user_id=user.id,
+        user_name=user.full_name or user.email,
+        action="Password Reset Requested",
+        original_text="N/A",
+        new_text=f"User requested a password reset link to {email}"
+    )
+    db.add(audit_log)
+    db.commit()
     
     return {"message": "If this email is registered, a reset link will be sent."}
 
@@ -155,6 +167,17 @@ LexVellum CEO
     """
     send_email(user_in.email, "Welcome to LexVellum Differential", email_body)
     
+    # Log to Audit Vault
+    audit_log = AuditLog(
+        user_id=current_ceo.id,
+        user_name=current_ceo.full_name or current_ceo.email,
+        action="Created User Account",
+        original_text="N/A",
+        new_text=f"Created {user_in.role} account for {user_in.email}"
+    )
+    db.add(audit_log)
+    db.commit()
+    
     return new_user
 
 @router.get("/users", response_model=list[UserOut])
@@ -180,7 +203,18 @@ def delete_user(
         raise HTTPException(status_code=400, detail="CEO cannot delete themselves")
         
     db.delete(user)
+    
+    # Log to Audit Vault
+    audit_log = AuditLog(
+        user_id=current_ceo.id,
+        user_name=current_ceo.full_name or current_ceo.email,
+        action="Deleted User Account",
+        original_text=f"Deleted account: {user.email}",
+        new_text="N/A"
+    )
+    db.add(audit_log)
     db.commit()
+    
     return None
 
 @router.put("/users/{user_id}/reset-password")
@@ -196,5 +230,16 @@ def reset_user_password(
         raise HTTPException(status_code=404, detail="User not found")
         
     user.hashed_password = get_password_hash(new_password)
+    
+    # Log to Audit Vault
+    audit_log = AuditLog(
+        user_id=current_ceo.id,
+        user_name=current_ceo.full_name or current_ceo.email,
+        action="Manual Password Reset",
+        original_text="N/A",
+        new_text=f"CEO manually reset password for {user.email}"
+    )
+    db.add(audit_log)
     db.commit()
+    
     return {"message": "Password reset successfully"}

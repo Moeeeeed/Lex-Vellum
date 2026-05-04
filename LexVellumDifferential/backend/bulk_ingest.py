@@ -41,12 +41,12 @@ async def bulk_ingest(file_path: str):
         article_id = metadata.get("article_id", f"unknown-id-{index}")
 
         if not law_text:
-            print(f"[{index + 1}/{len(laws)}] ❌ Skipping record: Missing 'law_text'.")
+            print(f"[{index + 1}/{len(laws)}] Skipping record: Missing 'law_text'.")
             failed += 1
             continue
 
         try:
-            print(f"[{index + 1}/{len(laws)}] ⏳ Ingesting: {article_id}...")
+            print(f"[{index + 1}/{len(laws)}]  Ingesting: {article_id}...")
             # This calls the Gemini API to get the embedding and saves it to Pinecone
             await rag_service.ingest_law(law_text, metadata)
             print(f"  ✅ Successfully stored {article_id}")
@@ -56,7 +56,7 @@ async def bulk_ingest(file_path: str):
             await asyncio.sleep(2) 
             
         except Exception as e:
-            print(f"  ❌ Failed to store {article_id}: {e}")
+            print(f" Failed to store {article_id}: {e}")
             failed += 1
 
     # 3. Print a final summary

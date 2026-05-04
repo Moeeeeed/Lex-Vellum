@@ -4,10 +4,12 @@ from sqlalchemy.orm import Session
 from app.api.rag_router import router as rag_router
 from app.api.auth_router import router as auth_router, get_password_hash
 from app.api.audit_router import router as audit_router
+from app.api.document_router import router as document_router
 from app.core.database import engine, get_db
 from app.models.base import Base
 from app.models.user import User
 from app.models.audit import AuditLog
+from app.models.document import Document
 from app.core.config import settings
 
 # Create database tables
@@ -55,6 +57,7 @@ app.add_middleware(
 app.include_router(rag_router)
 app.include_router(auth_router)
 app.include_router(audit_router)
+app.include_router(document_router)
 
 @app.get("/")
 async def root():
