@@ -57,7 +57,11 @@ export default function App() {
   // ── Helpers ─────────────────────────────────────────────
   const applyAnalysisResult = (data, label = 'Initial') => {
     const score = data.overall_score ?? null;
-    setClauses(data.evaluated_clauses || []);
+    const evaluated = (data.evaluated_clauses || []).map(c => ({
+      ...c,
+      baseline_text: c.original_text // Store the very first version
+    }));
+    setClauses(evaluated);
     setOverallScore(score);
     setJurisdictionScores(data.jurisdiction_scores || {});
     setCategoryBreakdown(data.category_breakdown || {});
@@ -133,6 +137,38 @@ export default function App() {
       }
     }
     if (activeClause?.id === clauseId) setActiveClause(null);
+  };
+
+  // ── Reject / Revert AI suggestion ────────────────────────
+  const handleRejectSuggestion = async (clauseId) => {
+    let rejectedLog = null;
+    setClauses(prev => {
+      return prev.map(c => {
+        if (c.id !== clauseId) return c;
+        rejectedLog = {
+          action: 'Rejected/Reverted AI Suggestion',
+          original_text: c.original_text,
+          new_text: c.baseline_text,
+          legal_article: c.flags ? c.flags.join(', ') : null
+        };
+        // Restore to original state (from baseline_text)
+        return { 
+          ...c, 
+          original_text: c.baseline_text, 
+          status: 'violation', // Assume it goes back to violation if it was one
+          score: 50,
+          safe_alternative: c.safe_alternative || '' // Keep the suggestion available in case they change mind
+        };
+      });
+    });
+    if (rejectedLog) {
+      try {
+        await saveAuditLogs([rejectedLog]);
+      } catch (e) {
+        console.error("Failed to log rejection:", e);
+      }
+    }
+    setActiveClause(null);
   };
 
   // ── Accept ALL AI suggestions ────────────────────────────
@@ -522,6 +558,7 @@ export default function App() {
               <SuggestionPanel
                 activeClause={activeClause}
                 onAccept={handleAcceptSuggestion}
+                onReject={handleRejectSuggestion}
               />
             </div>
           </>

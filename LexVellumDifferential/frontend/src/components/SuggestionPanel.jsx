@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function SuggestionPanel({ activeClause, onAccept }) {
+export default function SuggestionPanel({ activeClause, onAccept, onReject }) {
   if (!activeClause) {
     return (
       <div className="suggestion-panel" style={{ minHeight: 160 }}>
@@ -61,9 +61,14 @@ export default function SuggestionPanel({ activeClause, onAccept }) {
         <div>
           <div className="panel-section-label">AI Safe Alternative</div>
           <div className="panel-alt-text">{safe_alternative}</div>
-          <button className="btn btn-accept" onClick={() => onAccept(activeClause.id)}>
-            ✓ Accept AI Suggestion
-          </button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button className="btn btn-accept" onClick={() => onAccept(activeClause.id)} style={{ flex: 1 }}>
+              ✓ Accept
+            </button>
+            <button className="btn" onClick={() => onReject(activeClause.id)} style={{ flex: 1, background: '#333', color: '#fff', border: '1px solid #444' }}>
+              ✖ Reject
+            </button>
+          </div>
         </div>
       )}
 
@@ -80,12 +85,19 @@ export default function SuggestionPanel({ activeClause, onAccept }) {
 
       {/* Compliant */}
       {isCompliant && (
-        <div className="panel-text" style={{
-          borderLeftColor: 'var(--green-border)',
-          color: 'var(--green)',
-          fontSize: '0.78rem',
-        }}>
-          ✓ This paragraph complies with all checked regulations.
+        <div style={{ marginTop: 12 }}>
+          <div className="panel-text" style={{
+            borderLeftColor: 'var(--green-border)',
+            color: 'var(--green)',
+            fontSize: '0.78rem',
+          }}>
+            ✓ This paragraph complies with all checked regulations.
+          </div>
+          {activeClause.original_text !== activeClause.baseline_text && (
+            <button className="btn" onClick={() => onReject(activeClause.id)} style={{ marginTop: 8, fontSize: '0.7rem', background: '#333', color: '#fff', border: '1px solid #444' }}>
+              ↩ Revert to Original Text
+            </button>
+          )}
         </div>
       )}
     </div>
