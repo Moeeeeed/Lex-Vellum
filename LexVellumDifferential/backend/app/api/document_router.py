@@ -39,6 +39,19 @@ async def submit_document(
     db.commit()
     db.refresh(new_doc)
 
+    # FR38: Archive original version in Audit Vault
+    audit_archive = AuditLog(
+        user_id=current_user.id,
+        user_name=current_user.full_name or current_user.email,
+        action="Document Version Archived (Initial Submission)",
+        original_text="N/A",
+        new_text=f"Initial text for Doc ID {new_doc.id}",
+        full_document=new_doc.text,
+        document_id=new_doc.id
+    )
+    db.add(audit_archive)
+    db.commit()
+
     # Email notification
     if lawyer_id:
         lawyer_user = db.query(User).filter(User.id == lawyer_id).first()
@@ -87,6 +100,19 @@ async def approve_document(
     doc.status = "Approved"
     db.commit()
     db.refresh(doc)
+    
+    # FR38: Archive Final Approved Version in Audit Vault
+    audit_archive = AuditLog(
+        user_id=current_user.id,
+        user_name=current_user.full_name or current_user.email,
+        action="Document Version Archived (Final Approval)",
+        original_text="Pending Review",
+        new_text="Approved",
+        full_document=doc.text,
+        document_id=doc.id
+    )
+    db.add(audit_archive)
+    db.commit()
     
     # Notify CEO
     ceo_user = db.query(User).filter(User.role == "CEO").first()

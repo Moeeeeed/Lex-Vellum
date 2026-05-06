@@ -16,6 +16,7 @@ class AuditLog(Base):
     new_text = Column(String, nullable=False)
     legal_article = Column(String, nullable=True)
     full_document = Column(String, nullable=True)  # Added to store ToS text
+    document_id = Column(Integer, nullable=True) # Link to a specific document for history tracking
     timestamp = Column(DateTime, default=datetime.utcnow)
 
 # Pydantic Schemas
@@ -25,6 +26,7 @@ class AuditLogCreate(BaseModel):
     new_text: str
     legal_article: Optional[str] = None
     full_document: Optional[str] = None
+    document_id: Optional[int] = None
 
 class BulkAuditLogCreate(BaseModel):
     logs: List[AuditLogCreate]
@@ -38,6 +40,7 @@ class AuditLogOut(BaseModel):
     new_text: str
     legal_article: Optional[str] = None
     full_document: Optional[str] = None
+    document_id: Optional[int] = None
     timestamp: datetime
 
     class Config:
