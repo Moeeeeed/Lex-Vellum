@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { getAuditLogs } from '../api';
-
+import { getAuditLogs, downloadToSPDF, downloadAuditPDF } from '../api';
 export default function AuditVault({ onBack }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   useEffect(() => {
     getAuditLogs()
       .then(data => {
@@ -17,7 +15,6 @@ export default function AuditVault({ onBack }) {
         setLoading(false);
       });
   }, []);
-
   if (loading) {
     return (
       <div className="app-container" style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -25,7 +22,6 @@ export default function AuditVault({ onBack }) {
       </div>
     );
   }
-
   return (
     <div className="app-container" style={{ padding: '20px 40px', maxWidth: 1000, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -37,9 +33,7 @@ export default function AuditVault({ onBack }) {
         </div>
         <button className="btn" onClick={onBack}>↩ Back to Dashboard</button>
       </div>
-
       {error && <div style={{ color: 'var(--red)', marginBottom: 20 }}>Error: {error}</div>}
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {logs.length === 0 && !error && (
           <div style={{ padding: 40, textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 8, color: 'var(--text-muted)' }}>
@@ -70,11 +64,32 @@ export default function AuditVault({ onBack }) {
                 </span>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>By {log.user_name}</span>
               </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {new Date(log.timestamp).toLocaleString()}
-              </span>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                {log.document_id && (
+                  <>
+                    <button 
+                      className="btn" 
+                      style={{ padding: '2px 8px', fontSize: '0.65rem', background: 'transparent', border: '1px solid var(--border)' }}
+                      onClick={() => downloadToSPDF(log.document_id)}
+                      title="Download ToS PDF"
+                    >
+                      📄 ToS
+                    </button>
+                    <button 
+                      className="btn" 
+                      style={{ padding: '2px 8px', fontSize: '0.65rem', background: 'transparent', border: '1px solid var(--border)' }}
+                      onClick={() => downloadAuditPDF(log.document_id)}
+                      title="Download Audit PDF"
+                    >
+                      📋 Audit
+                    </button>
+                  </>
+                )}
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {new Date(log.timestamp).toLocaleString()}
+                </span>
+              </div>
             </div>
-            
             {log.full_document ? (
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-primary)', marginBottom: 4, fontWeight: 600 }}>Final Document Text (Terms of Service)</div>
@@ -123,7 +138,6 @@ export default function AuditVault({ onBack }) {
                 </div>
               </div>
             )}
-            
             {log.legal_article && (
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
                 <strong>Linked Legal Article:</strong> {log.legal_article}

@@ -1,5 +1,4 @@
-const API_URL = "http://127.0.0.1:8000/api/rag";
-
+const API_URL = "http://localhost:8000/api/rag";
 const getHeaders = (contentType = "application/json") => {
   const token = localStorage.getItem("token");
   const headers = {};
@@ -7,7 +6,6 @@ const getHeaders = (contentType = "application/json") => {
   if (token) headers["Authorization"] = `Bearer ${token}`;
   return headers;
 };
-
 export const analyzeDocument = async (text) => {
   const response = await fetch(`${API_URL}/analyze_document`, {
     method: "POST",
@@ -20,13 +18,12 @@ export const analyzeDocument = async (text) => {
   }
   return response.json();
 };
-
 export const uploadPDF = async (file) => {
   const formData = new FormData();
   formData.append("file", file);
   const response = await fetch(`${API_URL}/upload_pdf`, {
     method: "POST",
-    headers: getHeaders(null), // Don't set Content-Type for FormData
+    headers: getHeaders(null), 
     body: formData,
   });
   if (!response.ok) {
@@ -35,7 +32,6 @@ export const uploadPDF = async (file) => {
   }
   return response.json();
 };
-
 export const analyzeJurisdiction = async (documentText, jurisdiction) => {
   const response = await fetch(`${API_URL}/analyze_jurisdiction`, {
     method: "POST",
@@ -48,9 +44,8 @@ export const analyzeJurisdiction = async (documentText, jurisdiction) => {
   }
   return response.json();
 };
-
 export const saveAuditLogs = async (logs) => {
-  const response = await fetch(`http://127.0.0.1:8000/api/audit/`, {
+  const response = await fetch(`http://localhost:8000/api/audit/`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify({ logs }),
@@ -61,9 +56,8 @@ export const saveAuditLogs = async (logs) => {
   }
   return response.json();
 };
-
 export const getAuditLogs = async () => {
-  const response = await fetch(`http://127.0.0.1:8000/api/audit/`, {
+  const response = await fetch(`http://localhost:8000/api/audit/`, {
     method: "GET",
     headers: getHeaders(),
   });
@@ -73,10 +67,8 @@ export const getAuditLogs = async () => {
   }
   return response.json();
 };
-
-// Document Approval Workflow APIs
 export const submitDocument = async (text, lawyerId = null) => {
-  const response = await fetch(`http://127.0.0.1:8000/api/documents/`, {
+  const response = await fetch(`http://localhost:8000/api/documents/`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify({ text, lawyer_id: lawyerId }),
@@ -87,9 +79,8 @@ export const submitDocument = async (text, lawyerId = null) => {
   }
   return response.json();
 };
-
 export const getDocuments = async () => {
-  const response = await fetch(`http://127.0.0.1:8000/api/documents/`, {
+  const response = await fetch(`http://localhost:8000/api/documents/`, {
     method: "GET",
     headers: getHeaders(),
   });
@@ -99,9 +90,8 @@ export const getDocuments = async () => {
   }
   return response.json();
 };
-
 export const approveDocument = async (docId) => {
-  const response = await fetch(`http://127.0.0.1:8000/api/documents/${docId}/approve`, {
+  const response = await fetch(`http://localhost:8000/api/documents/${docId}/approve`, {
     method: "POST",
     headers: getHeaders(),
   });
@@ -111,9 +101,8 @@ export const approveDocument = async (docId) => {
   }
   return response.json();
 };
-
 export const rejectDocument = async (docId, comments) => {
-  const response = await fetch(`http://127.0.0.1:8000/api/documents/${docId}/reject`, {
+  const response = await fetch(`http://localhost:8000/api/documents/${docId}/reject`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify({ status: "Rejected", comments }),
@@ -123,4 +112,34 @@ export const rejectDocument = async (docId, comments) => {
     throw new Error(errorData?.detail || "Failed to reject document");
   }
   return response.json();
+};
+export const downloadToSPDF = async (docId) => {
+  const response = await fetch(`http://localhost:8000/api/documents/${docId}/download/tos`, {
+    method: "GET",
+    headers: getHeaders(null),
+  });
+  if (!response.ok) throw new Error("Failed to download ToS PDF");
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `ToS_${docId}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+};
+export const downloadAuditPDF = async (docId) => {
+  const response = await fetch(`http://localhost:8000/api/documents/${docId}/download/audit`, {
+    method: "GET",
+    headers: getHeaders(null),
+  });
+  if (!response.ok) throw new Error("Failed to download Audit PDF");
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Audit_Trail_${docId}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 };

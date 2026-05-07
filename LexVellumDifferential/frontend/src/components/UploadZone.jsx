@@ -1,9 +1,7 @@
 import React, { useRef, useState } from 'react';
-
 export default function UploadZone({ onFileSelect, selectedFile, disabled }) {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
-
   const handleDrop = (e) => {
     e.preventDefault();
     setDragging(false);
@@ -13,12 +11,10 @@ export default function UploadZone({ onFileSelect, selectedFile, disabled }) {
       onFileSelect(file);
     }
   };
-
   const handleChange = (e) => {
     const file = e.target.files[0];
     if (file) onFileSelect(file);
   };
-
   return (
     <div
       className={`upload-zone ${dragging ? 'dragging' : ''}`}

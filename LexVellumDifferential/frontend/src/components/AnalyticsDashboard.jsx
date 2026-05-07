@@ -3,8 +3,6 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, CartesianGrid, Legend, Cell,
 } from 'recharts';
-
-// ─── Color helpers ─────────────────────────────────────────────────────────
 function getScoreColor(score) {
   if (score >= 75) return 'var(--green)';
   if (score >= 45) return 'var(--yellow)';
@@ -15,8 +13,6 @@ function getScoreBg(score) {
   if (score >= 45) return 'rgba(243,156,18,0.15)';
   return 'rgba(231,76,60,0.18)';
 }
-
-// ─── Custom Tooltip ─────────────────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -32,11 +28,8 @@ const CustomTooltip = ({ active, payload, label }) => {
   }
   return null;
 };
-
-// ─── 1. Overall Score Ring ───────────────────────────────────────────────────
 function OverallScoreRing({ score }) {
   const [display, setDisplay] = useState(0);
-
   useEffect(() => {
     if (score == null) return;
     setDisplay(0);
@@ -49,13 +42,10 @@ function OverallScoreRing({ score }) {
     }, 30);
     return () => clearInterval(timer);
   }, [score]);
-
   if (score == null) return null;
-
   const radius = 38;
   const circ = 2 * Math.PI * radius;
   const progress = (display / 100) * circ;
-
   return (
     <div className="analytics-card">
       <div className="analytics-section-label">Overall Compliance Score</div>
@@ -88,31 +78,24 @@ function OverallScoreRing({ score }) {
     </div>
   );
 }
-
-// ─── 2. Compliance Heatmap (FR17) ────────────────────────────────────────────
 const CATEGORIES = ['Data Privacy', 'User Rights', 'Liability', 'Transparency'];
 const JURISDICTIONS = ['EU', 'USA', 'GDPR'];
-
 function buildHeatmapData(clauses) {
-  // Score per (jurisdiction × category) — we approximate by looking at clause jurisdictions + keywords
   const catKeywords = {
     'Data Privacy': ['data', 'personal', 'privacy', 'collect', 'process', 'store', 'share'],
     'User Rights': ['right', 'access', 'delete', 'portability', 'consent', 'opt'],
     'Liability': ['liab', 'damage', 'indemni', 'warrant', 'disclaim'],
     'Transparency': ['notif', 'inform', 'disclos', 'transparenc', 'communicat'],
   };
-
   const grid = {};
   JURISDICTIONS.forEach(j => {
     grid[j] = {};
     CATEGORIES.forEach(cat => { grid[j][cat] = { total: 0, count: 0 }; });
   });
-
   clauses.forEach(clause => {
     const jurisdictions = (clause.jurisdiction || []).map(j => j.toUpperCase());
     const text = (clause.original_text || '').toLowerCase();
     const score = clause.score ?? 50;
-
     CATEGORIES.forEach(cat => {
       const hits = catKeywords[cat].some(kw => text.includes(kw));
       if (hits) {
@@ -125,13 +108,10 @@ function buildHeatmapData(clauses) {
       }
     });
   });
-
   return grid;
 }
-
 function ComplianceHeatmap({ clauses, onRegionClick, activeRegion }) {
   const grid = buildHeatmapData(clauses);
-
   return (
     <div className="analytics-card">
       <div className="analytics-section-label">Compliance Heatmap (FR17)</div>
@@ -140,12 +120,12 @@ function ComplianceHeatmap({ clauses, onRegionClick, activeRegion }) {
       </p>
       <div className="heatmap-container">
         <div className="heatmap-grid" style={{ gridTemplateColumns: `72px repeat(${CATEGORIES.length}, 1fr)` }}>
-          {/* Header row */}
+          {}
           <div className="heatmap-header-cell" />
           {CATEGORIES.map(cat => (
             <div key={cat} className="heatmap-header-cell">{cat}</div>
           ))}
-          {/* Data rows */}
+          {}
           {JURISDICTIONS.map(j => (
             <React.Fragment key={j}>
               <div
@@ -178,8 +158,6 @@ function ComplianceHeatmap({ clauses, onRegionClick, activeRegion }) {
     </div>
   );
 }
-
-// ─── 3. Stacked Violation Bar Chart (FR18 + FR19) ────────────────────────────
 function buildStackedData(clauses) {
   const map = { EU: { violation: 0, warning: 0, compliant: 0 }, USA: { violation: 0, warning: 0, compliant: 0 }, GDPR: { violation: 0, warning: 0, compliant: 0 } };
   clauses.forEach(clause => {
@@ -191,10 +169,8 @@ function buildStackedData(clauses) {
   });
   return JURISDICTIONS.map(j => ({ name: j, ...map[j] }));
 }
-
 function StackedViolationChart({ clauses, onRegionClick, activeRegion }) {
   const data = buildStackedData(clauses);
-
   return (
     <div className="analytics-card">
       <div className="analytics-section-label">Violation Breakdown by Region (FR18)</div>
@@ -223,17 +199,12 @@ function StackedViolationChart({ clauses, onRegionClick, activeRegion }) {
     </div>
   );
 }
-
-// ─── 4. Audit Trend Line (FR20) ──────────────────────────────────────────────
 function buildTrendData(history) {
-  // history: array of { label, score } snapshots over time
   return history.map((h, i) => ({ step: h.label, score: h.score }));
 }
-
 function AuditTrendLine({ history }) {
   if (!history || history.length < 2) return null;
   const data = buildTrendData(history);
-
   return (
     <div className="analytics-card">
       <div className="analytics-section-label">Audit Trend Line (FR20)</div>
@@ -260,16 +231,12 @@ function AuditTrendLine({ history }) {
     </div>
   );
 }
-
-// ─── 5. Category Breakdown + Region Filter Chips (FR19 + FR22) ───────────────
 function CategoryBreakdownRow({ categoryBreakdown }) {
   const total = (categoryBreakdown?.violation || 0) + (categoryBreakdown?.warning || 0) + (categoryBreakdown?.compliant || 0);
   if (!total) return null;
-
   const v = categoryBreakdown.violation || 0;
   const w = categoryBreakdown.warning   || 0;
   const c = categoryBreakdown.compliant || 0;
-
   return (
     <div className="analytics-card">
       <div className="analytics-section-label">Clause Status Breakdown (FR19)</div>
@@ -287,7 +254,6 @@ function CategoryBreakdownRow({ categoryBreakdown }) {
     </div>
   );
 }
-
 function RegionFilterChips({ activeRegion, onRegionClick }) {
   const regions = ['ALL', 'EU', 'USA', 'GDPR'];
   return (
@@ -308,8 +274,6 @@ function RegionFilterChips({ activeRegion, onRegionClick }) {
     </div>
   );
 }
-
-// ─── Main Export ─────────────────────────────────────────────────────────────
 export default function AnalyticsDashboard({
   overallScore,
   jurisdictionScores,
@@ -321,7 +285,6 @@ export default function AnalyticsDashboard({
   isFullPage = false
 }) {
   if (overallScore == null) return null;
-
   return (
     <div className={`analytics-dashboard ${isFullPage ? 'full-page-grid' : ''} fade-in`}>
       <OverallScoreRing score={overallScore} />

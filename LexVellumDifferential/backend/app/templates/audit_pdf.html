@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            line-height: 1.4;
+            color: #333;
+            margin: 30px;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #000;
+        }
+        .title {
+            font-size: 18px;
+            color: #555;
+            margin-top: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 10px;
+        }
+        th {
+            background-color: #f2f2f2;
+            text-align: left;
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+        td {
+            padding: 8px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+        .action { font-weight: bold; color: #d32f2f; }
+        .timestamp { color: #666; font-size: 9px; }
+        .diff { background-color: #f9f9f9; padding: 5px; margin-top: 5px; border-left: 3px solid #ccc; }
+        .new-text { color: green; }
+        .old-text { color: red; text-decoration: line-through; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">LexVellum Differential</div>
+        <div class="title">Immutable Audit Vault - Truth Log</div>
+    </div>
+
+    <p style="font-size: 12px;">
+        <strong>Document ID:</strong> {{ doc_id }}<br>
+        <strong>Report Generated:</strong> {{ report_date }}
+    </p>
+
+    <table>
+        <thead>
+            <tr>
+                <th width="15%">Timestamp</th>
+                <th width="15%">User</th>
+                <th width="20%">Action</th>
+                <th width="50%">Details / Changes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in audit_trail %}
+            <tr>
+                <td class="timestamp">{{ entry.timestamp }}</td>
+                <td>{{ entry.user_name }}</td>
+                <td class="action">{{ entry.action }}</td>
+                <td>
+                    {% if entry.action == "Compliance Remediation" or entry.action == "Manual Edit" %}
+                        <div class="diff">
+                            <div class="old-text">Original: {{ entry.original_text[:200] }}...</div>
+                            <div class="new-text">New: {{ entry.new_text[:200] }}...</div>
+                        </div>
+                    {% else %}
+                        {{ entry.new_text or entry.action }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="margin-top: 30px; font-size: 9px; text-align: center; color: #999;">
+        CONFIDENTIAL - This audit trail is cryptographically linked and immutable.
+    </div>
+</body>
+</html>

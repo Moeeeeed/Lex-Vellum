@@ -3,11 +3,8 @@ from datetime import datetime
 from pydantic import BaseModel
 from typing import Optional, List
 from app.models.base import Base
-
-# SQLAlchemy Model
 class AuditLog(Base):
     __tablename__ = "audit_logs"
-
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     user_name = Column(String, nullable=False)
@@ -15,11 +12,9 @@ class AuditLog(Base):
     original_text = Column(String, nullable=False)
     new_text = Column(String, nullable=False)
     legal_article = Column(String, nullable=True)
-    full_document = Column(String, nullable=True)  # Added to store ToS text
-    document_id = Column(Integer, nullable=True) # Link to a specific document for history tracking
+    full_document = Column(String, nullable=True)  
+    document_id = Column(Integer, nullable=True) 
     timestamp = Column(DateTime, default=datetime.utcnow)
-
-# Pydantic Schemas
 class AuditLogCreate(BaseModel):
     action: str
     original_text: str
@@ -27,10 +22,8 @@ class AuditLogCreate(BaseModel):
     legal_article: Optional[str] = None
     full_document: Optional[str] = None
     document_id: Optional[int] = None
-
 class BulkAuditLogCreate(BaseModel):
     logs: List[AuditLogCreate]
-
 class AuditLogOut(BaseModel):
     id: int
     user_id: int
@@ -42,7 +35,5 @@ class AuditLogOut(BaseModel):
     full_document: Optional[str] = None
     document_id: Optional[int] = None
     timestamp: datetime
-
     class Config:
         from_attributes = True
-

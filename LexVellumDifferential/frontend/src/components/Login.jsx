@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-
 const Login = ({ onLoginSuccess }) => {
   const [isResetting, setIsResetting] = useState(false);
   const [email, setEmail] = useState('');
@@ -7,15 +6,13 @@ const Login = ({ onLoginSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       if (isResetting) {
-        const response = await fetch(`http://localhost:8000/api/auth/reset-password-request?email=${encodeURIComponent(email)}`, {
+        const response = await fetch(`http://localhost:8000/api/auth/reset-password?email=${email}`, {
           method: 'POST',
         });
         const data = await response.json();
@@ -26,16 +23,13 @@ const Login = ({ onLoginSuccess }) => {
         const formData = new URLSearchParams();
         formData.append('username', email);
         formData.append('password', password);
-
         const response = await fetch(`http://localhost:8000/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: formData,
         });
-
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Authentication failed');
-
         localStorage.setItem('token', data.access_token);
         onLoginSuccess(data.access_token);
       }
@@ -45,7 +39,6 @@ const Login = ({ onLoginSuccess }) => {
       setLoading(false);
     }
   };
-
   return (
     <div className="login-container">
       <div className="login-card">
@@ -53,12 +46,9 @@ const Login = ({ onLoginSuccess }) => {
           <h1 className="brand-title">LexVellum</h1>
           <p className="brand-subtitle">Differential compliance engine</p>
         </div>
-
         <form onSubmit={handleSubmit} className="login-form">
           <h2 className="form-title">{isResetting ? 'Reset Password' : 'Welcome Back'}</h2>
-          
           {error && <div className={`message ${error.includes('Success') ? 'success' : 'error'}`}>{error}</div>}
-
           <div className="input-group">
             <label>Email Address</label>
             <input
@@ -69,7 +59,6 @@ const Login = ({ onLoginSuccess }) => {
               required
             />
           </div>
-
           {!isResetting && (
             <div className="input-group">
               <label>Password</label>
@@ -96,12 +85,10 @@ const Login = ({ onLoginSuccess }) => {
               </div>
             </div>
           )}
-
           <button type="submit" className="login-button" disabled={loading}>
             {loading ? 'Processing...' : (isResetting ? 'Request Reset' : 'Access Platform')}
           </button>
         </form>
-
         <div className="login-footer">
           <button 
             className="toggle-button" 
@@ -111,7 +98,6 @@ const Login = ({ onLoginSuccess }) => {
           </button>
         </div>
       </div>
-
       <style>{`
         .login-container {
           display: flex;
@@ -122,7 +108,6 @@ const Login = ({ onLoginSuccess }) => {
           color: #fff;
           font-family: 'Inter', sans-serif;
         }
-
         .login-card {
           width: 100%;
           max-width: 400px;
@@ -132,12 +117,10 @@ const Login = ({ onLoginSuccess }) => {
           border-radius: 8px;
           box-shadow: 0 20px 40px rgba(0,0,0,0.4);
         }
-
         .login-header {
           text-align: center;
           margin-bottom: 40px;
         }
-
         .brand-title {
           font-size: 2rem;
           font-weight: 800;
@@ -145,23 +128,19 @@ const Login = ({ onLoginSuccess }) => {
           margin: 0;
           text-transform: uppercase;
         }
-
         .brand-subtitle {
           font-size: 0.8rem;
           color: #666;
           margin-top: 5px;
         }
-
         .form-title {
           font-size: 1.2rem;
           margin-bottom: 25px;
           font-weight: 500;
         }
-
         .input-group {
           margin-bottom: 20px;
         }
-
         .input-group label {
           display: block;
           font-size: 0.75rem;
@@ -170,7 +149,6 @@ const Login = ({ onLoginSuccess }) => {
           margin-bottom: 8px;
           letter-spacing: 1px;
         }
-
         .input-group input {
           width: 100%;
           padding: 12px;
@@ -181,17 +159,14 @@ const Login = ({ onLoginSuccess }) => {
           outline: none;
           transition: border-color 0.2s;
         }
-
         .input-group input:focus {
           border-color: #fff;
         }
-
         .password-input-wrapper {
           position: relative;
           display: flex;
           align-items: center;
         }
-
         .password-toggle {
           position: absolute;
           right: 12px;
@@ -205,11 +180,9 @@ const Login = ({ onLoginSuccess }) => {
           padding: 0;
           transition: color 0.2s;
         }
-
         .password-toggle:hover {
           color: #fff;
         }
-
         .login-button {
           width: 100%;
           padding: 14px;
@@ -222,41 +195,34 @@ const Login = ({ onLoginSuccess }) => {
           transition: background 0.2s;
           margin-top: 10px;
         }
-
         .login-button:hover {
           background: #ccc;
         }
-
         .login-button:disabled {
           background: #333;
           color: #666;
           cursor: not-allowed;
         }
-
         .message {
           padding: 10px;
           border-radius: 4px;
           font-size: 0.85rem;
           margin-bottom: 20px;
         }
-
         .message.error {
           background: rgba(255, 0, 0, 0.1);
           color: #ff5555;
           border: 1px solid #ff5555;
         }
-
         .message.success {
           background: rgba(0, 255, 0, 0.1);
           color: #55ff55;
           border: 1px solid #55ff55;
         }
-
         .login-footer {
           margin-top: 25px;
           text-align: center;
         }
-
         .toggle-button {
           background: none;
           border: none;
@@ -265,7 +231,6 @@ const Login = ({ onLoginSuccess }) => {
           cursor: pointer;
           transition: color 0.2s;
         }
-
         .toggle-button:hover {
           color: #fff;
         }
@@ -273,5 +238,4 @@ const Login = ({ onLoginSuccess }) => {
     </div>
   );
 };
-
 export default Login;

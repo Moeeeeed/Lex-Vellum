@@ -12,3 +12,6 @@ python-multipart
 passlib[bcrypt]
 python-jose[cryptography]
 email-validator
+jinja2
+xhtml2pdf
+

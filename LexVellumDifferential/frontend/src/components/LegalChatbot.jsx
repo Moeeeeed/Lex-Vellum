@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-
 export default function LegalChatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -8,39 +7,31 @@ export default function LegalChatbot() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef(null);
-
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isOpen]);
-
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
-
     const userMessage = { role: 'user', content: input };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
-
     try {
       const response = await fetch('http://localhost:8000/api/rag/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage.content }),
       });
-
       if (!response.ok) throw new Error('Failed to reach AI');
-      
       const data = await response.json();
-      
       const assistantMessage = { 
         role: 'assistant', 
         content: data.answer,
         citations: data.citations || [],
         sources: data.raw_sources || []
       };
-      
       setMessages(prev => [...prev, assistantMessage]);
     } catch (err) {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
@@ -48,10 +39,9 @@ export default function LegalChatbot() {
       setIsLoading(false);
     }
   };
-
   return (
     <div className="chatbot-wrapper">
-      {/* Floating Button */}
+      {}
       <button 
         className={`chatbot-trigger ${isOpen ? 'active' : ''}`}
         onClick={() => setIsOpen(!isOpen)}
@@ -59,8 +49,7 @@ export default function LegalChatbot() {
       >
         {isOpen ? '✕' : '💬'}
       </button>
-
-      {/* Chat Window */}
+      {}
       {isOpen && (
         <div className="chatbot-window fade-in">
           <div className="chatbot-header">
@@ -69,13 +58,11 @@ export default function LegalChatbot() {
               <div className="chatbot-status">Legal Assistant • Online</div>
             </div>
           </div>
-
           <div className="chatbot-messages" ref={scrollRef}>
             {messages.map((m, i) => (
               <div key={i} className={`chatbot-msg-row ${m.role}`}>
                 <div className={`chatbot-bubble ${m.role}`}>
                   <div className="chatbot-bubble-content">{m.content}</div>
-                  
                   {m.citations && m.citations.length > 0 && (
                     <div className="chatbot-citations">
                       <strong>Citations:</strong>
@@ -84,7 +71,6 @@ export default function LegalChatbot() {
                       ))}
                     </div>
                   )}
-
                   {m.sources && m.sources.length > 0 && (
                     <div className="chatbot-sources">
                       <details>
@@ -110,7 +96,6 @@ export default function LegalChatbot() {
               </div>
             )}
           </div>
-
           <div className="chatbot-input-area">
             <input 
               type="text" 

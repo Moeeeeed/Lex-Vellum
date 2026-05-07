@@ -1,16 +1,13 @@
 import React, { useRef, useEffect } from 'react';
-
 const STATUS_CLASS = {
   violation: 'violation',
   warning: 'warning',
   compliant: 'compliant',
 };
-
 function ScoreBadge({ score }) {
   const cls = score >= 75 ? 'high' : score >= 45 ? 'mid' : 'low';
   return <span className={`score-badge ${cls}`}>{score}</span>;
 }
-
 export default function Editor({
   clauses,
   onClauseClick,
@@ -20,8 +17,6 @@ export default function Editor({
   onClauseTextChange,
 }) {
   const clauseRefs = useRef({});
-
-  // When a clause becomes active, scroll it into view
   useEffect(() => {
     if (activeClauseId && clauseRefs.current[activeClauseId]) {
       clauseRefs.current[activeClauseId].scrollIntoView({
@@ -30,7 +25,6 @@ export default function Editor({
       });
     }
   }, [activeClauseId]);
-
   if (isAnalyzing) {
     return (
       <div className="editor-pane">
@@ -42,7 +36,6 @@ export default function Editor({
       </div>
     );
   }
-
   if (!clauses || clauses.length === 0) {
     return (
       <div className="editor-pane">
@@ -53,18 +46,15 @@ export default function Editor({
       </div>
     );
   }
-
   return (
     <div className="editor-pane document-view fade-in">
       <div className="section-heading" style={{ marginBottom: 14 }}>
         Document — {clauses.length} paragraphs analyzed
       </div>
-
       {clauses.map((clause) => {
         const statusClass = STATUS_CLASS[clause.status] || 'compliant';
         const isActive = activeClauseId === clause.id;
         const flags = clause.flags || [];
-
         return (
           <div
             key={clause.id}
@@ -79,7 +69,7 @@ export default function Editor({
               }
             }}
           >
-            {/* Meta row: status dot + flags + score */}
+            {}
             <div className="clause-meta">
               <span className={`status-dot ${statusClass}`} />
               {flags.map((flag, i) => (
@@ -87,8 +77,7 @@ export default function Editor({
               ))}
               <ScoreBadge score={clause.score ?? 85} />
             </div>
-
-            {/* Clause text */}
+            {}
             <span>{clause.original_text}</span>
           </div>
         );

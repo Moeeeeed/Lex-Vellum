@@ -11,16 +11,12 @@ from app.models.user import User
 from app.models.audit import AuditLog
 from app.models.document import Document
 from app.core.config import settings
-
-# Create database tables
 Base.metadata.create_all(bind=engine)
-
 app = FastAPI(
     title="LexVellum Differential API",
     description="AI-driven strategic legal compliance engine",
     version="0.1.0",
 )
-
 @app.on_event("startup")
 def create_ceo_user():
     db = next(get_db())
@@ -38,14 +34,10 @@ def create_ceo_user():
         db.add(ceo)
         db.commit()
         print(f"CEO user created: {settings.CEO_EMAIL}")
-
-# Configure CORS for React frontend
-# In production, replace "*" with the actual origin of the React app
 origins = [
-    "http://localhost:5173",  # Default Vite React port
-    "http://localhost:3000",  # Default Create React App port
+    "http://localhost:5173",  
+    "http://localhost:3000",  
 ]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -53,16 +45,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 app.include_router(rag_router)
 app.include_router(auth_router)
 app.include_router(audit_router)
 app.include_router(document_router)
-
 @app.get("/")
 async def root():
     return {"message": "Welcome to LexVellum Differential API"}
-
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}

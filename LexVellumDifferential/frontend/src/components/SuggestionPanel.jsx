@@ -1,5 +1,4 @@
 import React from 'react';
-
 export default function SuggestionPanel({ activeClause, onAccept, onReject }) {
   if (!activeClause) {
     return (
@@ -11,68 +10,57 @@ export default function SuggestionPanel({ activeClause, onAccept, onReject }) {
       </div>
     );
   }
-
   const { status, reasoning, safe_alternative, original_text, flags = [], score } = activeClause;
   const isViolation = status === 'violation';
   const isWarning   = status === 'warning';
   const isCompliant = status === 'compliant';
-
   return (
     <div className="suggestion-panel">
-      {/* Badge row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span className={`panel-badge ${status}`}>
           {isViolation ? '🔴 Violation' : isWarning ? '🟡 Warning' : '🟢 Compliant'}
         </span>
         {flags.map((f, i) => (
-          <span key={i} style={{ fontSize: '1rem' }}>{f}</span>
+          <span key={i} style={{ fontSize: '0.75rem', background: '#1a1a1a', border: '1px solid #333', borderRadius: 4, padding: '2px 6px' }}>{f}</span>
         ))}
         {score != null && (
-          <span style={{
-            marginLeft: 'auto',
-            fontSize: '0.7rem',
-            color: 'var(--text-muted)',
-          }}>
+          <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
             Score: <strong style={{ color: 'var(--text-primary)' }}>{score}/100</strong>
           </span>
         )}
       </div>
-
-      {/* Original text */}
       <div>
         <div className="panel-section-label">Original Text</div>
-        <div className="panel-text" style={{ fontStyle: 'italic', borderLeftColor: 'var(--border-hover)' }}>
+        <div className="panel-text" style={{ fontStyle: 'italic', borderLeftColor: 'var(--border-hover)', fontSize: '0.72rem', lineHeight: 1.5 }}>
           "{original_text}"
         </div>
       </div>
-
-      {/* Reasoning */}
       {reasoning && (
         <div>
           <div className="panel-section-label">
             {isViolation ? 'Why it violates' : isWarning ? 'Why it may become an issue' : 'Why it is compliant'}
           </div>
-          <div className="panel-text">{reasoning}</div>
+          <div className="panel-text" style={{ fontSize: '0.78rem' }}>{reasoning}</div>
         </div>
       )}
-
-      {/* Violation only: AI suggestion */}
       {isViolation && safe_alternative && (
         <div>
           <div className="panel-section-label">AI Safe Alternative</div>
-          <div className="panel-alt-text">{safe_alternative}</div>
+          <div className="panel-alt-text" style={{ fontSize: '0.72rem', lineHeight: 1.6 }}>{safe_alternative}</div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button className="btn btn-accept" onClick={() => onAccept(activeClause.id)} style={{ flex: 1 }}>
               ✓ Accept
             </button>
-            <button className="btn" onClick={() => onReject(activeClause.id)} style={{ flex: 1, background: '#333', color: '#fff', border: '1px solid #444' }}>
+            <button
+              className="btn btn-danger"
+              onClick={() => onReject(activeClause.id)}
+              style={{ flex: 1 }}
+            >
               ✖ Reject
             </button>
           </div>
         </div>
       )}
-
-      {/* Warning only: future risk notice — NO suggestion, NO accept button */}
       {isWarning && (
         <div className="panel-text" style={{
           borderLeftColor: 'var(--yellow-border)',
@@ -82,8 +70,6 @@ export default function SuggestionPanel({ activeClause, onAccept, onReject }) {
           ⚠️ This clause could potentially be violated in future regulatory updates. No immediate action required, but consider reviewing it.
         </div>
       )}
-
-      {/* Compliant */}
       {isCompliant && (
         <div style={{ marginTop: 12 }}>
           <div className="panel-text" style={{
@@ -94,7 +80,7 @@ export default function SuggestionPanel({ activeClause, onAccept, onReject }) {
             ✓ This paragraph complies with all checked regulations.
           </div>
           {activeClause.original_text !== activeClause.baseline_text && (
-            <button className="btn" onClick={() => onReject(activeClause.id)} style={{ marginTop: 8, fontSize: '0.7rem', background: '#333', color: '#fff', border: '1px solid #444' }}>
+            <button className="btn btn-danger" onClick={() => onReject(activeClause.id)} style={{ marginTop: 8, fontSize: '0.7rem' }}>
               ↩ Revert to Original Text
             </button>
           )}

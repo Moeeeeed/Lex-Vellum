@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from 'react';
-
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  
-  // New user form state
   const [newEmail, setNewEmail] = useState('');
   const [newFullName, setNewFullName] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [newRole, setNewRole] = useState('Editor');
-
   const fetchUsers = async () => {
     try {
       const response = await fetch('http://localhost:8000/api/auth/users', {
@@ -29,11 +25,9 @@ const UserManagement = () => {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     fetchUsers();
   }, []);
-
   const handleAddUser = async (e) => {
     e.preventDefault();
     try {
@@ -63,7 +57,6 @@ const UserManagement = () => {
       alert(err.message);
     }
   };
-
   const handleDeleteUser = async (userId) => {
     if (!window.confirm('Are you sure you want to revoke access for this user?')) return;
     try {
@@ -79,18 +72,14 @@ const UserManagement = () => {
       alert(err.message);
     }
   };
-
   if (loading) return <div className="p-4 text-center">Loading users...</div>;
-
   return (
     <div className="user-management">
       <div className="management-header">
         <h2>User Management</h2>
         <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>+ Add New User</button>
       </div>
-
       {error && <div className="error-message">{error}</div>}
-
       <table className="user-table">
         <thead>
           <tr>
@@ -121,7 +110,6 @@ const UserManagement = () => {
           ))}
         </tbody>
       </table>
-
       {showAddModal && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -173,7 +161,6 @@ const UserManagement = () => {
           </div>
         </div>
       )}
-
       <style>{`
         .user-management {
           padding: 20px;
@@ -214,7 +201,6 @@ const UserManagement = () => {
         .role-ceo { background: #fff; color: #000; }
         .role-editor { background: #333; color: #fff; }
         .role-approver { background: #222; color: #aaa; border: 1px solid #444; }
-        
         .btn-revoke {
           background: none;
           border: 1px solid #ff5555;
@@ -235,7 +221,6 @@ const UserManagement = () => {
           border-color: #666;
           color: #666;
         }
-
         .modal-overlay {
           position: fixed;
           top: 0;
@@ -262,13 +247,11 @@ const UserManagement = () => {
           gap: 10px;
           margin-top: 20px;
         }
-
         .password-input-wrapper {
           position: relative;
           display: flex;
           align-items: center;
         }
-
         .password-toggle {
           position: absolute;
           right: 12px;
@@ -282,7 +265,6 @@ const UserManagement = () => {
           padding: 0;
           transition: color 0.2s;
         }
-
         .password-toggle:hover {
           color: #fff;
         }
@@ -290,5 +272,4 @@ const UserManagement = () => {
     </div>
   );
 };
-
 export default UserManagement;

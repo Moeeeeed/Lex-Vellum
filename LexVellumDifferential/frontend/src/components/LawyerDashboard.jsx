@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { getDocuments, approveDocument, rejectDocument } from '../api';
-
+import { getDocuments, approveDocument, rejectDocument, downloadToSPDF, downloadAuditPDF } from '../api';
 export default function LawyerDashboard() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [rejectComment, setRejectComment] = useState('');
-
   useEffect(() => {
     fetchDocuments();
   }, []);
-
   const fetchDocuments = async () => {
     setLoading(true);
     try {
@@ -22,7 +19,6 @@ export default function LawyerDashboard() {
       setLoading(false);
     }
   };
-
   const handleApprove = async () => {
     if (!selectedDoc) return;
     try {
@@ -34,7 +30,6 @@ export default function LawyerDashboard() {
       alert("Error approving document: " + err.message);
     }
   };
-
   const handleReject = async () => {
     if (!selectedDoc) return;
     if (!rejectComment.trim()) {
@@ -51,17 +46,14 @@ export default function LawyerDashboard() {
       alert("Error rejecting document: " + err.message);
     }
   };
-
   if (loading && documents.length === 0) {
     return <div style={{ padding: 20 }}>Loading documents...</div>;
   }
-
   return (
     <div className="analytics-page fade-in" style={{ width: '100%', maxWidth: 1000, margin: '0 auto' }}>
       <div className="section-heading" style={{ marginBottom: 20 }}>Lawyer Approval Dashboard</div>
-      
       <div style={{ display: 'flex', gap: 20 }}>
-        {/* Sidebar: Document List */}
+        {}
         <div style={{ width: '30%', borderRight: '1px solid var(--border)', paddingRight: 20 }}>
           <h3 style={{ fontSize: '1rem', marginBottom: 15 }}>Pending Documents</h3>
           {documents.length === 0 ? (
@@ -90,8 +82,7 @@ export default function LawyerDashboard() {
             </ul>
           )}
         </div>
-
-        {/* Main: Document Details */}
+        {}
         <div style={{ width: '70%', paddingLeft: 20 }}>
           {selectedDoc ? (
             <div>
@@ -101,28 +92,39 @@ export default function LawyerDashboard() {
                   {selectedDoc.status}
                 </span>
               </div>
-              
               <div className="clause-block" style={{ whiteSpace: 'pre-wrap', maxHeight: '50vh', overflowY: 'auto' }}>
                 {selectedDoc.text}
               </div>
-              
               {selectedDoc.comments && (
                 <div style={{ marginTop: 20, padding: 15, background: 'rgba(255,50,50,0.1)', borderRadius: 8 }}>
                   <strong>Rejection Comments:</strong>
                   <p>{selectedDoc.comments}</p>
                 </div>
               )}
-
+              {}
+              <div style={{ marginTop: 20, display: 'flex', gap: 10 }}>
+                <button 
+                  className="btn" 
+                  style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)', fontSize: '0.8rem' }}
+                  onClick={() => downloadToSPDF(selectedDoc.id)}
+                >
+                  📄 Download ToS PDF
+                </button>
+                <button 
+                  className="btn" 
+                  style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)', fontSize: '0.8rem' }}
+                  onClick={() => downloadAuditPDF(selectedDoc.id)}
+                >
+                  📋 Download Audit Log PDF
+                </button>
+              </div>
               {selectedDoc.status === 'Pending Review' && (
                 <div style={{ marginTop: 30, padding: 20, background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
                   <h3 style={{ fontSize: '1rem', marginBottom: 15 }}>Approval Action</h3>
-                  
                   <div style={{ display: 'flex', gap: 10, marginBottom: 15 }}>
                     <button className="btn btn-success" onClick={handleApprove}>✓ Approve Document</button>
                   </div>
-                  
                   <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '15px 0' }} />
-                  
                   <div>
                     <textarea 
                       placeholder="Reason for rejection..."
@@ -130,7 +132,7 @@ export default function LawyerDashboard() {
                       onChange={(e) => setRejectComment(e.target.value)}
                       style={{ width: '100%', padding: 10, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'inherit', marginBottom: 10, minHeight: 60 }}
                     />
-                    <button className="btn btn-warning" onClick={handleReject}>✕ Reject Document</button>
+                    <button className="btn btn-danger" onClick={handleReject}>✕ Reject Document</button>
                   </div>
                 </div>
               )}

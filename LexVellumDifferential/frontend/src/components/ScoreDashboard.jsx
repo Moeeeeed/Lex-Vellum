@@ -8,13 +8,11 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-
 function getScoreColor(score) {
   if (score >= 75) return 'var(--green)';
   if (score >= 45) return 'var(--yellow)';
   return 'var(--red)';
 }
-
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     return (
@@ -32,25 +30,20 @@ const CustomTooltip = ({ active, payload }) => {
   }
   return null;
 };
-
 export default function ScoreDashboard({ overallScore, jurisdictionScores, categoryBreakdown }) {
   if (overallScore == null) return null;
-
   const barData = Object.entries(jurisdictionScores || {}).map(([key, val]) => ({
     label: key,
     score: val,
   }));
-
   const totalClauses =
     (categoryBreakdown?.violation || 0) +
     (categoryBreakdown?.warning   || 0) +
     (categoryBreakdown?.compliant || 0);
-
   return (
     <div className="score-dashboard">
       <div className="dashboard-title">Compliance Dashboard</div>
-
-      {/* Overall score */}
+      {}
       <div className="overall-score-ring">
         <div>
           <div className="ring-number" style={{ color: getScoreColor(overallScore) }}>
@@ -73,8 +66,7 @@ export default function ScoreDashboard({ overallScore, jurisdictionScores, categ
           </div>
         </div>
       </div>
-
-      {/* Jurisdiction bar chart */}
+      {}
       {barData.length > 0 && (
         <>
           <div className="panel-section-label" style={{ marginBottom: 8 }}>
@@ -111,8 +103,7 @@ export default function ScoreDashboard({ overallScore, jurisdictionScores, categ
           </ResponsiveContainer>
         </>
       )}
-
-      {/* Category breakdown chips */}
+      {}
       {totalClauses > 0 && (
         <div className="breakdown-chips">
           {categoryBreakdown?.violation > 0 && (
