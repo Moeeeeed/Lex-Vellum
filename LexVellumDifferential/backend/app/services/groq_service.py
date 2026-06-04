@@ -25,7 +25,7 @@ For each clause, perform a thorough analysis. For every clause you MUST:
 1. Determine the compliance status: 'violation' (clearly breaks a law), 'warning' (risky or ambiguous), or 'compliant' (fully compliant).
 2. Identify ALL applicable law articles that are relevant.
 3. Assign a compliance score from 0 (completely non-compliant) to 100 (fully compliant).
-4. Provide a detailed reasoning of at least 2-3 sentences explaining WHY the clause is compliant, a warning, or a violation. Be specific about which legal article is implicated.
+4. Provide a detailed reasoning of at least sentences explaining WHY the clause is compliant, a warning, or a violation. Be specific about which legal article is implicated.
 5. For violations: write a comprehensive safe_alternative of at least 3 sentences that fully resolves every legal concern.
 
 Output ONLY valid JSON:
